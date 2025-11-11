@@ -4,7 +4,55 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SimpleBank DApp</title>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6fb;
+      color: #0f172a;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 16px;
+      margin: 12px 0;
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1e40af;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -56,7 +104,7 @@
       <button id="emergencyBtn">Emergency Withdraw</button>
     </div>
 
-    <p class="muted">Make sure MetaMask is connected to the same network.</p>
+    <p class="muted">Make sure MetaMask is connected to the same network (e.g. Sepolia).</p>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.0/dist/ethers.min.js"></script>
@@ -79,7 +127,11 @@
   let provider, signer, account, contract;
 
   async function connectWallet() {
-    if (!window.ethereum) return alert("Please install MetaMask");
+    if (!window.ethereum) {
+      alert("Please install MetaMask to use this DApp.");
+      window.open("https://metamask.io", "_blank");
+      return;
+    }
     provider = new ethers.BrowserProvider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
     signer = await provider.getSigner();
