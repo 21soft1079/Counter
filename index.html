@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SimpleBank DApp</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>SimpleBank DApp</h1>
+
+    <div class="card">
+      <button id="connectBtn">Connect Wallet</button>
+      <p id="address"></p>
+      <p>Network: <span id="network"></span></p>
+    </div>
+
+    <div class="card">
+      <h3>Contract</h3>
+      <input id="contractAddressInput" placeholder="Paste deployed contract address" />
+      <button id="loadContract">Load Contract</button>
+      <p id="contractInfo"></p>
+    </div>
+
+    <div class="card">
+      <h3>Deposit</h3>
+      <input id="depositAmount" placeholder="Amount in ETH" />
+      <button id="depositBtn">Deposit</button>
+    </div>
+
+    <div class="card">
+      <h3>Withdraw</h3>
+      <input id="withdrawAmount" placeholder="Amount in ETH" />
+      <button id="withdrawBtn">Withdraw</button>
+    </div>
+
+    <div class="card">
+      <h3>Transfer (internal)</h3>
+      <input id="toAddress" placeholder="Recipient address" />
+      <input id="transferAmount" placeholder="Amount in ETH" />
+      <button id="transferBtn">Transfer</button>
+    </div>
+
+    <div class="card">
+      <h3>Check Balance</h3>
+      <input id="queryAddress" placeholder="Address to query (leave blank = your address)" />
+      <button id="balanceBtn">Get Balance</button>
+      <p id="balanceDisplay"></p>
+    </div>
+
+    <div class="card" id="ownerControls" style="display:none;">
+      <h3>Owner Controls</h3>
+      <button id="pauseBtn">Pause</button>
+      <button id="unpauseBtn">Unpause</button>
+      <button id="emergencyBtn">Emergency Withdraw</button>
+    </div>
+
+    <p class="muted">Make sure MetaMask is connected to the same network.</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.0/dist/ethers.min.js"></script>
+  <script>
+  const simpleBankAbi = [
+    {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"who","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Deposit","type":"event"},
+    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"who","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Withdraw","type":"event"},
+    {"inputs":[{"internalType":"address","name":"who","type":"address"}],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"paused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferTo","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"pause","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"unpause","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"emergencyWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"}
+  ];
+
+  let provider, signer, account, contract;
+
+  async function connectWallet() {
+    if (!window.ethereum) return alert("Please install MetaMask");
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    document.getElementById("address").innerText = account;
+    const network = await provider.getNetwork();
+    document.getElementById("network").innerText = `${network.name} (${network.chainId})`;
+  }
+
+  document.getElementById("connectBtn").onclick = connectWallet;
+
+  document.getElementById("loadContract").onclick = async () => {
+    const addr = document.getElementById("contractAddressInput").value.trim();
+    if (!addr) return alert("Enter contract address");
+    contract = new ethers.Contract(addr, simpleBankAbi, signer);
+    document.getElementById("contractInfo").innerText = `Loaded contract at ${addr}`;
+    const owner = await contract.owner();
+    if (account.toLowerCase() === owner.toLowerCase()) {
+      document.getElementById("ownerControls").style.display = "block";
+    }
+  };
+
+  document.getElementById("depositBtn").onclick = async () => {
+    const eth = document.getElementById("depositAmount").value;
+    const tx = await contract.deposit({ value: ethers.parseEther(eth) });
+    await tx.wait();
+    alert("Deposit complete!");
+  };
+
+  document.getElementById("withdrawBtn").onclick = async () => {
+    const eth = document.getElementById("withdrawAmount").value;
+    const tx = await contract.withdraw(ethers.parseEther(eth));
+    await tx.wait();
+    alert("Withdraw complete!");
+  };
+
+  document.getElementById("transferBtn").onclick = async () => {
+    const to = document.getElementById("toAddress").value;
+    const eth = document.getElementById("transferAmount").value;
+    const tx = await contract.transferTo(to, ethers.parseEther(eth));
+    await tx.wait();
+    alert("Transfer successful!");
+  };
+
+  document.getElementById("balanceBtn").onclick = async () => {
+    let who = document.getElementById("queryAddress").value || account;
+    const bal = await contract.getBalance(who);
+    document.getElementById("balanceDisplay").innerText = `${ethers.formatEther(bal)} ETH`;
+  };
+
+  document.getElementById("pauseBtn").onclick = async () => {
+    const tx = await contract.pause();
+    await tx.wait();
+    alert("Paused!");
+  };
+  document.getElementById("unpauseBtn").onclick = async () => {
+    const tx = await contract.unpause();
+    await tx.wait();
+    alert("Unpaused!");
+  };
+  document.getElementById("emergencyBtn").onclick = async () => {
+    if (confirm("Emergency withdraw everything to owner?")) {
+      const tx = await contract.emergencyWithdraw();
+      await tx.wait();
+      alert("Emergency withdraw done!");
+    }
+  };
+  </script>
+</body>
+</html>
