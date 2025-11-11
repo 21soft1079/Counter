@@ -73,20 +73,20 @@
 
     <div class="card">
       <h3>Deposit</h3>
-      <input id="depositAmount" placeholder="Amount in ETH" />
+      <input id="depositAmount" placeholder="Amount in ETH" type="number" min="0" step="any" />
       <button id="depositBtn">Deposit</button>
     </div>
 
     <div class="card">
       <h3>Withdraw</h3>
-      <input id="withdrawAmount" placeholder="Amount in ETH" />
+      <input id="withdrawAmount" placeholder="Amount in ETH" type="number" min="0" step="any" />
       <button id="withdrawBtn">Withdraw</button>
     </div>
 
     <div class="card">
       <h3>Transfer (internal)</h3>
       <input id="toAddress" placeholder="Recipient address" />
-      <input id="transferAmount" placeholder="Amount in ETH" />
+      <input id="transferAmount" placeholder="Amount in ETH" type="number" min="0" step="any" />
       <button id="transferBtn">Transfer</button>
     </div>
 
@@ -109,19 +109,107 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.0/dist/ethers.min.js"></script>
   <script>
+  // Full ABI for SimpleBank
   const simpleBankAbi = [
-    {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
-    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"who","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Deposit","type":"event"},
-    {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"who","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"Withdraw","type":"event"},
-    {"inputs":[{"internalType":"address","name":"who","type":"address"}],"name":"getBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"paused","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},
-    {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
-    {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferTo","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[],"name":"pause","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[],"name":"unpause","outputs":[],"stateMutability":"nonpayable","type":"function"},
-    {"inputs":[],"name":"emergencyWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "who", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "Deposit",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": true, "internalType": "address", "name": "who", "type": "address" },
+        { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "Withdraw",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "who", "type": "address" }
+      ],
+      "name": "getBalance",
+      "outputs": [
+        { "internalType": "uint256", "name": "", "type": "uint256" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        { "internalType": "address", "name": "", "type": "address" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
+      "outputs": [
+        { "internalType": "bool", "name": "", "type": "bool" }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "to", "type": "address" },
+        { "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "transferTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "emergencyWithdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
   ];
 
   let provider, signer, account, contract;
@@ -144,59 +232,107 @@
   document.getElementById("connectBtn").onclick = connectWallet;
 
   document.getElementById("loadContract").onclick = async () => {
+    if (!signer) return alert("Connect your wallet first.");
     const addr = document.getElementById("contractAddressInput").value.trim();
-    if (!addr) return alert("Enter contract address");
+    if (!addr || !ethers.isAddress(addr)) return alert("Enter a valid contract address");
     contract = new ethers.Contract(addr, simpleBankAbi, signer);
-    document.getElementById("contractInfo").innerText = `Loaded contract at ${addr}`;
-    const owner = await contract.owner();
-    if (account.toLowerCase() === owner.toLowerCase()) {
-      document.getElementById("ownerControls").style.display = "block";
+    try {
+      document.getElementById("contractInfo").innerText = `Loaded contract at ${addr}`;
+      const owner = await contract.owner();
+      if (account.toLowerCase() === owner.toLowerCase()) {
+        document.getElementById("ownerControls").style.display = "block";
+      } else {
+        document.getElementById("ownerControls").style.display = "none";
+      }
+    } catch (e) {
+      document.getElementById("contractInfo").innerText = "Failed to load contract. Please check address and ABI.";
+      contract = undefined;
     }
   };
 
   document.getElementById("depositBtn").onclick = async () => {
+    if (!contract) return alert("Load a contract first.");
     const eth = document.getElementById("depositAmount").value;
-    const tx = await contract.deposit({ value: ethers.parseEther(eth) });
-    await tx.wait();
-    alert("Deposit complete!");
+    if (!eth || isNaN(Number(eth)) || Number(eth) <= 0) return alert("Enter deposit amount in ETH");
+    try {
+      const tx = await contract.deposit({ value: ethers.parseEther(eth) });
+      await tx.wait();
+      alert("Deposit complete!");
+    } catch (e) {
+      alert("Error: " + (e.info?.error?.message || e.message));
+    }
   };
 
   document.getElementById("withdrawBtn").onclick = async () => {
+    if (!contract) return alert("Load a contract first.");
     const eth = document.getElementById("withdrawAmount").value;
-    const tx = await contract.withdraw(ethers.parseEther(eth));
-    await tx.wait();
-    alert("Withdraw complete!");
+    if (!eth || isNaN(Number(eth)) || Number(eth) <= 0) return alert("Enter withdraw amount in ETH");
+    try {
+      const tx = await contract.withdraw(ethers.parseEther(eth));
+      await tx.wait();
+      alert("Withdraw complete!");
+    } catch (e) {
+      alert("Error: " + (e.info?.error?.message || e.message));
+    }
   };
 
   document.getElementById("transferBtn").onclick = async () => {
+    if (!contract) return alert("Load a contract first.");
     const to = document.getElementById("toAddress").value;
     const eth = document.getElementById("transferAmount").value;
-    const tx = await contract.transferTo(to, ethers.parseEther(eth));
-    await tx.wait();
-    alert("Transfer successful!");
+    if (!ethers.isAddress(to)) return alert("Invalid recipient address");
+    if (!eth || isNaN(Number(eth)) || Number(eth) <= 0) return alert("Enter transfer amount in ETH");
+    try {
+      const tx = await contract.transferTo(to, ethers.parseEther(eth));
+      await tx.wait();
+      alert("Transfer successful!");
+    } catch (e) {
+      alert("Error: " + (e.info?.error?.message || e.message));
+    }
   };
 
   document.getElementById("balanceBtn").onclick = async () => {
+    if (!contract) return alert("Load a contract first.");
     let who = document.getElementById("queryAddress").value || account;
-    const bal = await contract.getBalance(who);
-    document.getElementById("balanceDisplay").innerText = `${ethers.formatEther(bal)} ETH`;
+    if (!ethers.isAddress(who)) return alert("Enter a valid Ethereum address");
+    try {
+      const bal = await contract.getBalance(who);
+      document.getElementById("balanceDisplay").innerText = `${ethers.formatEther(bal)} ETH`;
+    } catch (e) {
+      document.getElementById("balanceDisplay").innerText = "Error reading balance.";
+    }
   };
 
   document.getElementById("pauseBtn").onclick = async () => {
-    const tx = await contract.pause();
-    await tx.wait();
-    alert("Paused!");
+    if (!contract) return alert("Load a contract first.");
+    try {
+      const tx = await contract.pause();
+      await tx.wait();
+      alert("Paused!");
+    } catch (e) {
+      alert("Error: " + (e.info?.error?.message || e.message));
+    }
   };
   document.getElementById("unpauseBtn").onclick = async () => {
-    const tx = await contract.unpause();
-    await tx.wait();
-    alert("Unpaused!");
+    if (!contract) return alert("Load a contract first.");
+    try {
+      const tx = await contract.unpause();
+      await tx.wait();
+      alert("Unpaused!");
+    } catch (e) {
+      alert("Error: " + (e.info?.error?.message || e.message));
+    }
   };
   document.getElementById("emergencyBtn").onclick = async () => {
+    if (!contract) return alert("Load a contract first.");
     if (confirm("Emergency withdraw everything to owner?")) {
-      const tx = await contract.emergencyWithdraw();
-      await tx.wait();
-      alert("Emergency withdraw done!");
+      try {
+        const tx = await contract.emergencyWithdraw();
+        await tx.wait();
+        alert("Emergency withdraw done!");
+      } catch (e) {
+        alert("Error: " + (e.info?.error?.message || e.message));
+      }
     }
   };
   </script>
